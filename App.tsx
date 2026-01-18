@@ -55,9 +55,13 @@ const App: React.FC = () => {
   const nextStartTime = useRef(0);
   const sourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
 
-  // Extract all irregular verbs for the dictionary modal
+  // Extract all irregular verbs for the dictionary modal with their tense metadata
   const allIrregularVerbs = SPANISH_VERB_DATA.flatMap(tense => 
-    tense.verbs.filter(v => v.isIrregular).map(v => ({ ...v, tenseTitle: tense.title }))
+    tense.verbs.filter(v => v.isIrregular).map(v => ({ 
+      ...v, 
+      tenseTitle: tense.title,
+      tenseId: tense.id
+    }))
   );
 
   // Group verbs of the current tense
@@ -85,7 +89,7 @@ const App: React.FC = () => {
     };
   };
 
-  const startShadowing = async () => {
+  const startShadowing = async (tenseToUse = selectedTense, verbToUse = selectedVerb) => {
     try {
       initAudio();
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
@@ -96,10 +100,10 @@ const App: React.FC = () => {
         config: {
           responseModalities: [Modality.AUDIO],
           speechConfig: {
-            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } }, // 더 에너제틱하고 정확한 발음을 위해 Puck으로 변경
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } }, 
           },
           systemInstruction: `당신은 스페인 현지인 수준의 완벽한 발음을 가진 스페인어 회화 전문 튜터입니다.
-          사용자는 현재 ${selectedTense.title}의 ${selectedVerb.name} 동사 변화를 연습하려고 합니다.
+          사용자는 현재 ${tenseToUse.title}의 ${verbToUse.name} 동사 변화를 연습하려고 합니다.
           
           발음 가이드:
           - 스페인(Castilian) 또는 중남미 원어민의 자연스럽고 명확한 억양을 사용하세요.
@@ -180,6 +184,21 @@ const App: React.FC = () => {
     }
     setIsSessionActive(false);
     setStatusMessage('학습이 종료되었습니다.');
+  };
+
+  const handleStartShadowingFromModal = (v: any) => {
+    const targetTense = SPANISH_VERB_DATA.find(t => t.id === v.tenseId);
+    if (targetTense) {
+      setSelectedTense(targetTense);
+      setSelectedVerb(v);
+      setShowIrregularModal(false);
+      // 스크롤을 맨 위로 올려 메인 훈련창을 보여줍니다.
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      
+      // 즉시 쉐도잉 세션을 시작합니다.
+      // 리액트의 상태 업데이트가 비동기이므로, 업데이트될 값들을 인자로 직접 전달합니다.
+      startShadowing(targetTense, v);
+    }
   };
 
   return (
@@ -274,7 +293,7 @@ const App: React.FC = () => {
                     onClick={() => setSelectedVerb(v)}
                     className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all flex items-center justify-center gap-2 border w-full text-center ${
                       selectedVerb.name === v.name 
-                        ? 'bg-amber-600 text-white shadow-lg border-amber-500 ring-2 ring-amber-500/30' 
+                        ? 'bg-amber-600 text-white shadow-lg border-amber-500 ring-2 ring-emerald-500/30' 
                         : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700 border-slate-700'
                     }`}
                   >
@@ -351,7 +370,7 @@ const App: React.FC = () => {
           <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
             {!isSessionActive ? (
               <button
-                onClick={startShadowing}
+                onClick={() => startShadowing()}
                 className="bg-emerald-600 hover:bg-emerald-500 text-white px-12 py-5 rounded-2xl font-black text-lg shadow-[0_10px_30px_rgba(16,185,129,0.3)] transform hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3"
               >
                 <i className="fas fa-play text-xs"></i> 원어민 쉐도잉 시작
@@ -401,7 +420,7 @@ const App: React.FC = () => {
             <div className="flex-1 overflow-y-auto p-6 bg-slate-900/50">
               <div className="grid sm:grid-cols-2 gap-4">
                 {allIrregularVerbs.map((v, i) => (
-                  <div key={i} className="bg-slate-800 rounded-2xl border border-slate-700 p-5 hover:border-amber-500/30 transition-all">
+                  <div key={i} className="bg-slate-800 rounded-2xl border border-slate-700 p-5 hover:border-amber-500/30 transition-all flex flex-col">
                     <div className="flex justify-between items-start mb-4">
                       <div>
                         <h4 className="text-xl font-bold text-white">{v.name}</h4>
@@ -411,7 +430,7 @@ const App: React.FC = () => {
                         {v.tenseTitle.split('(')[0]}
                       </span>
                     </div>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-4 flex-1">
                       {v.conjugations.map((c, ci) => (
                         <div key={ci} className="flex flex-col">
                           <span className="text-[10px] text-slate-500">{c.pronoun}</span>
@@ -419,6 +438,12 @@ const App: React.FC = () => {
                         </div>
                       ))}
                     </div>
+                    <button 
+                      onClick={() => handleStartShadowingFromModal(v)}
+                      className="w-full py-2.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white text-xs font-bold border border-emerald-500/30 transition-all flex items-center justify-center gap-2"
+                    >
+                      <i className="fas fa-play text-[10px]"></i> 쉐도잉 시작하기
+                    </button>
                   </div>
                 ))}
               </div>
