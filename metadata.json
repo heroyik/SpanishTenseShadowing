@@ -1,0 +1,7 @@
+{
+  "name": "Spanish Shadowing Coach",
+  "description": "스페인어 동사 시제별 변화를 원어민 발음으로 듣고 따라 하며 익숙해지는 쉐도잉 학습 앱입니다.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
