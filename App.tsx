@@ -49,11 +49,18 @@ const App: React.FC = () => {
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [statusMessage, setStatusMessage] = useState('시작하려면 마이크 버튼을 누르세요.');
   const [showIrregularModal, setShowIrregularModal] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
   
   const audioContexts = useRef<{ input: AudioContext; output: AudioContext } | null>(null);
   const sessionRef = useRef<any>(null);
   const nextStartTime = useRef(0);
   const sourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
+  
+  // Use a ref for playback speed to access it inside the onmessage callback without closure issues
+  const playbackSpeedRef = useRef(playbackSpeed);
+  useEffect(() => {
+    playbackSpeedRef.current = playbackSpeed;
+  }, [playbackSpeed]);
 
   // Extract all irregular verbs for the dictionary modal with their tense metadata
   const allIrregularVerbs = SPANISH_VERB_DATA.flatMap(tense => 
@@ -147,10 +154,17 @@ const App: React.FC = () => {
               const buffer = await decodeAudioData(decode(base64Audio), outCtx, 24000, 1);
               const source = outCtx.createBufferSource();
               source.buffer = buffer;
+              
+              // Apply playback speed
+              const currentSpeed = playbackSpeedRef.current;
+              source.playbackRate.value = currentSpeed;
+              
               source.connect(outCtx.destination);
               source.addEventListener('ended', () => sourcesRef.current.delete(source));
+              
               source.start(nextStartTime.current);
-              nextStartTime.current += buffer.duration;
+              // Duration needs to be divided by speed to schedule the next chunk correctly
+              nextStartTime.current += (buffer.duration / currentSpeed);
               sourcesRef.current.add(source);
             }
 
@@ -188,20 +202,6 @@ const App: React.FC = () => {
     }
     setIsSessionActive(false);
     setStatusMessage('학습이 종료되었습니다.');
-  };
-
-  const handleStartShadowingFromModal = (v: any) => {
-    const targetTense = SPANISH_VERB_DATA.find(t => t.id === v.tenseId);
-    if (targetTense) {
-      setSelectedTense(targetTense);
-      setSelectedVerb(v);
-      setShowIrregularModal(false);
-      // 스크롤을 맨 위로 올려 메인 훈련창을 보여줍니다.
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      
-      // 즉시 쉐도잉 세션을 시작합니다.
-      startShadowing(targetTense, v);
-    }
   };
 
   return (
@@ -296,7 +296,7 @@ const App: React.FC = () => {
                     onClick={() => setSelectedVerb(v)}
                     className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all flex items-center justify-center gap-2 border w-full text-center ${
                       selectedVerb.name === v.name 
-                        ? 'bg-amber-600 text-white shadow-lg border-amber-500 ring-2 ring-amber-500/30' 
+                        ? 'bg-amber-600 text-white shadow-lg border-amber-500 ring-2 ring-emerald-500/30' 
                         : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700 border-slate-700'
                     }`}
                   >
@@ -349,7 +349,7 @@ const App: React.FC = () => {
 
         {/* Voice Control */}
         <section className="md:col-span-3 bg-slate-800/80 backdrop-blur-md rounded-2xl p-8 border border-slate-700 shadow-xl flex flex-col items-center justify-center min-h-[460px]">
-          <div className="text-center mb-10 w-full">
+          <div className="text-center mb-6 w-full">
             <div className={`relative w-32 h-32 rounded-full flex items-center justify-center mx-auto mb-8 transition-all duration-500 ${
               isSessionActive ? 'bg-emerald-500 shadow-[0_0_50px_rgba(16,185,129,0.4)]' : 'bg-slate-700 shadow-xl'
             }`}>
@@ -368,6 +368,24 @@ const App: React.FC = () => {
             <div className="max-w-xs mx-auto bg-slate-900/40 py-3 px-4 rounded-xl border border-slate-700/50">
               <p className="text-sm text-slate-400 font-medium leading-relaxed">{statusMessage}</p>
             </div>
+          </div>
+
+          {/* Playback Speed Controls */}
+          <div className="flex items-center gap-3 mb-8 bg-slate-900/50 p-1.5 rounded-full border border-slate-700">
+            <span className="text-[10px] font-black text-slate-500 ml-3 uppercase tracking-wider">Speed</span>
+            {[0.75, 1.0, 1.25].map((speed) => (
+              <button
+                key={speed}
+                onClick={() => setPlaybackSpeed(speed)}
+                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+                  playbackSpeed === speed
+                    ? 'bg-amber-500 text-slate-950 shadow-lg'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700'
+                }`}
+              >
+                {speed}x
+              </button>
+            ))}
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
@@ -396,6 +414,7 @@ const App: React.FC = () => {
             <p className="text-xs text-slate-400 leading-relaxed">
               튜터가 <span className="text-amber-300">"{selectedVerb.conjugations[0].pronoun} {selectedVerb.conjugations[0].form}"</span> 처럼 현지인 발음으로 한 단계씩 읽어줍니다. 
               소리가 멈추면 원어민의 억양과 리듬을 최대한 흉내 내어 따라 읽으세요. 
+              {playbackSpeed !== 1.0 && <span className="text-amber-400 ml-1">현재 {playbackSpeed}배속으로 훈련 중입니다.</span>}
               강세 위치에 주의하며 반복 연습하세요!
             </p>
           </div>
@@ -433,7 +452,7 @@ const App: React.FC = () => {
                         {v.tenseTitle.split('(')[0]}
                       </span>
                     </div>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-4 flex-1">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 flex-1">
                       {v.conjugations.map((c, ci) => (
                         <div key={ci} className="flex flex-col">
                           <span className="text-[10px] text-slate-500">{c.pronoun}</span>
@@ -441,12 +460,6 @@ const App: React.FC = () => {
                         </div>
                       ))}
                     </div>
-                    <button 
-                      onClick={() => handleStartShadowingFromModal(v)}
-                      className="w-full py-2.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white text-xs font-bold border border-emerald-500/30 transition-all flex items-center justify-center gap-2"
-                    >
-                      <i className="fas fa-play text-[10px]"></i> 쉐도잉 시작하기
-                    </button>
                   </div>
                 ))}
               </div>
@@ -461,11 +474,14 @@ const App: React.FC = () => {
 
       <footer className="mt-12 py-8 text-slate-500 text-sm text-center border-t border-slate-800 w-full">
         <div className="flex justify-center gap-6 mb-4">
-          <i className="fab fa-instagram hover:text-amber-500 cursor-pointer"></i>
-          <i className="fab fa-youtube hover:text-amber-500 cursor-pointer"></i>
-          <i className="fab fa-github hover:text-amber-500 cursor-pointer"></i>
+          <a href="https://heroyik.github.io" target="_blank" rel="noopener noreferrer" className="hover:text-amber-500 transition-colors">
+            <i className="fas fa-house text-xl"></i>
+          </a>
+          <a href="https://github.com/heroyik" target="_blank" rel="noopener noreferrer" className="hover:text-amber-500 transition-colors">
+            <i className="fab fa-github text-xl"></i>
+          </a>
         </div>
-        <p>© 2024 Spanish Shadowing Coach - Native Audio with Gemini Live</p>
+        <p>© 2026 Spanish Shadowing Coach - Native Audio with Gemini Live</p>
       </footer>
     </div>
   );
