@@ -110,9 +110,13 @@ const App: React.FC = () => {
           - 강세(Accent)가 있는 음절을 확실히 강조하여 스페인어 특유의 리듬감을 살려주세요.
           - 설명은 한국어로 부드럽게 하되, 스페인어 단어나 문장을 말할 때는 즉시 원어민의 목소리로 전환하세요.
           
+          인칭 대명사 읽기 규칙 (중요):
+          - 표에 'Él/Ella/Ud.'라고 되어 있어도 쉐도잉 시에는 대표로 "Él"만 읽으세요. (예: "Él habla")
+          - 표에 'Ellos/Ellas/Uds.'라고 되어 있어도 쉐도잉 시에는 대표로 "Ellos"만 읽으세요. (예: "Ellos hablan")
+          
           학습 방식:
           1. 먼저 어떤 동사 변화를 연습할지 한국어로 짧게 안내하세요.
-          2. 스페인어 인칭 대명사와 동사 변화형을 하나씩, 아주 명확하고 정확한 원어민 발음으로 읽어주세요. (예: "Yo hablo")
+          2. 위의 인칭 대명사 읽기 규칙을 준수하여 동사 변화형을 하나씩, 명확한 원어민 발음으로 읽어주세요.
           3. 사용자가 따라 읽는 것을 충분히 기다린 후, 잘 따라했는지 격려하고 다음 인칭으로 넘어가세요.
           4. 모든 인칭 변화가 끝나면 칭찬과 함께 짧은 응원 멘트를 전하며 종료하세요.`,
         },
@@ -196,7 +200,6 @@ const App: React.FC = () => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
       
       // 즉시 쉐도잉 세션을 시작합니다.
-      // 리액트의 상태 업데이트가 비동기이므로, 업데이트될 값들을 인자로 직접 전달합니다.
       startShadowing(targetTense, v);
     }
   };
@@ -293,7 +296,7 @@ const App: React.FC = () => {
                     onClick={() => setSelectedVerb(v)}
                     className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all flex items-center justify-center gap-2 border w-full text-center ${
                       selectedVerb.name === v.name 
-                        ? 'bg-amber-600 text-white shadow-lg border-amber-500 ring-2 ring-emerald-500/30' 
+                        ? 'bg-amber-600 text-white shadow-lg border-amber-500 ring-2 ring-amber-500/30' 
                         : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700 border-slate-700'
                     }`}
                   >
